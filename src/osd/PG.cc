@@ -763,7 +763,21 @@ void PG::send_cluster_message(
   if (!con) {
     return;
   }
-
+  else {
+    // wait for a while for new connection to be ready for sending message
+    auto *c = con.get();
+    int i = 0;
+    while (!c->is_connected()) {
+      usleep(10);
+      i++;
+      if (i > 9)
+      {
+        dout(5) << __func__ << ": connection could not get ready after 100 ms. not sending message"
+        << dendl;
+        return;
+      }
+    }
+  }
   if (share_map_update) {
     osd->maybe_share_map(con.get(), get_osdmap());
   }
