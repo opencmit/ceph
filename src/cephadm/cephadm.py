@@ -5401,6 +5401,9 @@ def prepare_ssh(
         }
         cli(['cephadm', 'set-ssh-config', '-i', '/tmp/cephadm-ssh-config'], extra_mounts=mounts)
 
+    if ctx.ssh_user != 'root' and ctx.ssh_password:
+        logger.info('Using provided sudo password for non root user...')
+        cli(['cephadm', 'set-password', ctx.ssh_password])
     if ctx.ssh_private_key and ctx.ssh_public_key:
         logger.info('Using provided ssh keys...')
         mounts = {
@@ -7720,7 +7723,7 @@ def check_ssh_connectivity(ctx: CephadmContext) -> None:
                             *ssh_cfg_file_arg, '-i', ssh_priv_key_path,
                             '-o PasswordAuthentication=no',
                             f'{ctx.ssh_user}@{get_hostname()}',
-                            'sudo echo'])
+                            f'sshpass -p {ctx.ssh_password} sudo echo' if ctx.ssh_password else 'sudo echo'])
 
     # we only remove the key if it's a new one. In case the user has provided
     # some already existing key then we don't alter authorized_keys file
@@ -7732,7 +7735,7 @@ def check_ssh_connectivity(ctx: CephadmContext) -> None:
     ssh_cfg_msg = '- The ssh configuration file configured by --ssh-config is valid\n' if ctx.ssh_config else ''
     err_msg = f"""
 ** Please verify your user's ssh configuration and make sure:
-- User {ctx.ssh_user} must have passwordless sudo access
+- User {ctx.ssh_user} must have passwordless sudo access or specify password by --ssh-password for sudoing if passwordless sudo is not enabled
 {pub_key_msg}{prv_key_msg}{ssh_cfg_msg}
 """
     if code != 0:
@@ -9699,7 +9702,10 @@ def _get_parser():
     parser_bootstrap.add_argument(
         '--ssh-user',
         default='root',
-        help='set user for SSHing to cluster hosts, passwordless sudo will be needed for non-root users')
+        help='set user for SSHing to cluster hosts, sudo will be needed for non-root users')
+    parser_bootstrap.add_argument(
+        '--ssh-password',
+       help='set password for sudoing on cluster hosts if passwordless sudo is not enabled. sshpass is required on each host of cluster')
     parser_bootstrap.add_argument(
         '--skip-mon-network',
         action='store_true',

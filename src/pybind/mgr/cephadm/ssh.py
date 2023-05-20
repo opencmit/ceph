@@ -157,7 +157,13 @@ class SSHManager:
                                log_command: Optional[bool] = True,
                                ) -> Tuple[str, str, int]:
         conn = await self._remote_connection(host, addr)
-        sudo_prefix = "sudo " if self.mgr.ssh_user != 'root' else ""
+        if self.mgr.ssh_user != 'root':
+                if self.mgr.ssh_password:
+                        sudo_prefix = f"sshpass -p {self.mgr.ssh_password} sudo "
+                else:
+                        sudo_prefix = "sudo "
+        else:
+                sudo_prefix = ""
         cmd = sudo_prefix + " ".join(quote(x) for x in cmd)
         if log_command:
             logger.debug(f'Running command: {cmd}')
@@ -314,6 +320,10 @@ class SSHManager:
             self.mgr.validate_ssh_config_fname(self.mgr.ssh_config_fname)
             ssh_options += ['-F', self.mgr.ssh_config_fname]
         self.mgr.ssh_config = ssh_config
+
+        # password identity
+        ssh_password = self.mgr.get_store("ssh_password", default='')
+        self.mgr.ssh_password = ssh_password
 
         # identity
         ssh_key = self.mgr.get_store("ssh_identity_key")
